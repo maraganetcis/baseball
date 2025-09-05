@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>컴프야-like Web Sim (Prototype)</title>
+  <style>
+    html,body { margin:0; padding:0; height:100%; background:#111; color:#fff; font-family: Arial, Helvetica, sans-serif; }
+    #game { width:100vw; height:100vh; }
+    .hint { position: fixed; left: 16px; bottom: 16px; background: rgba(0,0,0,0.4); padding:8px 12px; border-radius:8px; font-size:13px; }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <div class="hint">선수 카드 관리: 왼쪽 버튼 → 경기 시뮬: START ▶</div>
+
+  <!-- Phaser CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
