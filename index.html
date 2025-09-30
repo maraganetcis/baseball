@@ -1,25 +1,28 @@
-<!doctype html>
-<html lang="ko">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>컴프야-like Web Sim (도형 버전)</title>
-  <style>
-    html, body { margin:0; padding:0; height:100%; background:#000; }
-    #game { width:100vw; height:100vh; overflow:hidden; }
-    .btn {
-      position: fixed; bottom: 2rem; width: 64px; height: 64px; opacity: 0.6; border-radius: 50%;
-      border: 1px solid #fff; display:flex; align-items:center; justify-content:center; user-select:none;
-      touch-action: manipulation; backdrop-filter: blur(6px);
-    }
-    #btnNext { right: 2rem; }
-  </style>
+  <meta charset="UTF-8">
+  <title>Baseball Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="game"></div>
-  <div id="btnNext" class="btn">▶</div>
-
-  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
-  <script src="./game.js"></script>
+  <h1>Baseball Game</h1>
+  <div id="game-container">
+    <canvas id="game-canvas" width="800" height="500"></canvas>
+    <div id="controls">
+      <button id="pitch-btn">Pitch</button>
+      <button id="swing-btn">Swing</button>
+      <button id="reset-btn">Reset</button>
+    </div>
+    <div id="scoreboard">
+      <div>Inning: <span id="inning">1</span></div>
+      <div>Score: <span id="score">0</span></div>
+      <div>Strikes: <span id="strikes">0</span></div>
+      <div>Outs: <span id="outs">0</span></div>
+    </div>
+    <div id="message"></div>
+  </div>
+  <script src="game.js"></script>
 </body>
 </html>
