@@ -1,137 +1,253 @@
-// 단순 도형 + 텍스트 기반 컴프야-like 시뮬
-const config = {
-  type: Phaser.AUTO,
-  parent: 'game',
-  backgroundColor: '#0b1730',
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 800, height: 600 },
-  scene: { preload, create, update }
-};
-const game = new Phaser.Game(config);
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
 
-let state = {
-  team: [],
-  nextPlayerId: 1,
+const pitchBtn = document.getElementById('pitch-btn');
+const swingBtn = document.getElementById('swing-btn');
+const resetBtn = document.getElementById('reset-btn');
+const inningSpan = document.getElementById('inning');
+const scoreSpan = document.getElementById('score');
+const strikesSpan = document.getElementById('strikes');
+const outsSpan = document.getElementById('outs');
+const messageDiv = document.getElementById('message');
+
+// Game state
+let game = {
   inning: 1,
-  half: 'top', // top/bottom
+  score: 0,
+  strikes: 0,
   outs: 0,
-  bases: [false,false,false],
-  score: { home:0, away:0 },
-  log: [],
-  currentBatterIdx: 0
+  ballX: 400,
+  ballY: 120,
+  ballVX: 0,
+  ballVY: 0,
+  ballActive: false,
+  batterSwing: false,
+  gameActive: true,
+  bases: [false, false, false], // 1st, 2nd, 3rd
 };
 
-let ui = {};
+function drawField() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-function preload() {
-  // 도형 + 텍스트 기반이라 이미지 없음
-}
-
-function create() {
-  drawField(this);
-  createUI(this);
-  makeStarterTeam();
-  renderTeamCard(this);
-  renderScoreboard(this);
-
-  // 다음 타석 버튼
-  document.getElementById('btnNext').addEventListener('click', ()=>nextAtBat(this));
-}
-
-function update(){}
-
-/* ---------------------- 배경 그리기 ---------------------- */
-function drawField(scene) {
-  const { width, height } = scene.scale;
-  // 외야
-  scene.add.rectangle(width/2, height/2, 800, 600, 0x006600);
-  // 내야 다이아몬드
-  scene.add.polygon(width/2, height*0.55, [
-    width*0.5, height*0.45,
-    width*0.7, height*0.55,
-    width*0.5, height*0.65,
-    width*0.3, height*0.55
-  ], 0xc2a676);
-  // 베이스
-  [[0.5,0.45],[0.7,0.55],[0.5,0.65],[0.3,0.55]].forEach(([fx, fy])=>{
-    scene.add.rectangle(width*fx, height*fy, 10, 10, 0xffffff);
-  });
-  // 투수 마운드
-  scene.add.circle(width/2, height*0.55, 15, 0xffffff);
-}
-
-/* ---------------------- UI ---------------------- */
-function createUI(scene){
-  ui.scoreText = scene.add.text(10,10,"", {fontSize:'18px', color:'#fff'});
-  ui.logText = scene.add.text(10,450,"", {fontSize:'14px', color:'#fff', wordWrap:{width:380}});
-  ui.playerCardContainer = scene.add.container(600,100);
-}
-
-/* ---------------------- 팀/선수 ---------------------- */
-function createRandomPlayer(){
-  const names = ['김타자','박홈런','이패스','최강','정스윙','한파워','조컨택'];
-  const name = names[Math.floor(Math.random()*names.length)] + '-' + state.nextPlayerId;
-  state.nextPlayerId++;
-  return { id: 'p'+Date.now(), name, team: '블루드래곤', bat: Phaser.Math.Between(40,95) };
-}
-
-function makeStarterTeam(){
-  state.team = [];
-  for(let i=0;i<9;i++) state.team.push(createRandomPlayer());
-  addLog("초기 팀 생성 완료");
-}
-
-function renderTeamCard(scene){
-  ui.playerCardContainer.removeAll(true);
-  const batter = state.team[state.currentBatterIdx];
-  const card = scene.add.rectangle(0,0,150,80,0x222222).setStrokeStyle(2,0xffffff);
-  const nameText = scene.add.text(-65,-20, batter.name, {fontSize:'16px', color:'#fff'});
-  const teamText = scene.add.text(-65,5, `팀: ${batter.team}`, {fontSize:'14px', color:'#0ff'});
-  ui.playerCardContainer.add([card,nameText,teamText]);
-}
-
-/* ---------------------- 점수판 / 로그 ---------------------- */
-function renderScoreboard(scene){
-  ui.scoreText.setText(`이닝: ${state.inning} ${state.half.toUpperCase()}   OUTS: ${state.outs}\nSCORE — HOME: ${state.score.home}  AWAY: ${state.score.away}`);
-}
-
-function addLog(msg){
-  const time = new Date().toLocaleTimeString();
-  state.log.unshift(`[${time}] ${msg}`);
-  if(state.log.length>10) state.log.pop();
-  ui.logText.setText(state.log.join("\n"));
-}
-
-/* ---------------------- 타석 진행 ---------------------- */
-function nextAtBat(scene){
-  const batter = state.team[state.currentBatterIdx];
-  addLog(`${batter.name} 타석`);
-
-  // 간단 확률 시뮬
-  const r = Math.random()*100;
-  let res = '';
-  if(r<20) res='strikeout';
-  else if(r<40) res='out';
-  else if(r<75) res='single';
-  else res='homerun';
-
-  addLog(`${batter.name} 결과: ${res.toUpperCase()}`);
-  // 점수/루 처리 단순
-  if(res==='homerun'){
-    state.score.home++;
-    // 간단 홈런 애니
-    const boom = scene.add.circle(400,200,40,0xffd54f,0.7);
-    scene.tweens.add({targets:boom,alpha:{from:0.7,to:0},duration:800,onComplete:()=>boom.destroy()});
+  // Draw bases
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = '#333';
+  let baseCoords = [
+    [400, 420], // Home
+    [540, 340], // 1st
+    [400, 260], // 2nd
+    [260, 340], // 3rd
+  ];
+  for (let i = 0; i < baseCoords.length; i++) {
+    ctx.beginPath();
+    ctx.arc(baseCoords[i][0], baseCoords[i][1], 16, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
+    if (i > 0 && game.bases[i - 1]) {
+      ctx.fillStyle = '#ffc107';
+      ctx.beginPath();
+      ctx.arc(baseCoords[i][0], baseCoords[i][1], 14, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+    }
   }
+  // Draw pitcher's mound
+  ctx.fillStyle = '#8d5524';
+  ctx.beginPath();
+  ctx.arc(400, 200, 22, 0, 2 * Math.PI);
+  ctx.fill();
 
-  // 다음 타자
-  state.currentBatterIdx = (state.currentBatterIdx+1)%state.team.length;
-  renderTeamCard(scene);
-  renderScoreboard(scene);
+  // Draw batter
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(380, 440, 40, 20);
 
-  // 시점 전환
-  if(state.currentBatterIdx%2===0){
-    scene.cameras.main.pan(400,180,500); // 투수 시점
-  } else {
-    scene.cameras.main.pan(400,520,500); // 타자 시점
+  // Draw ball
+  if (game.ballActive || game.batterSwing) {
+    ctx.fillStyle = '#e74c3c';
+    ctx.beginPath();
+    ctx.arc(game.ballX, game.ballY, 10, 0, 2 * Math.PI);
+    ctx.fill();
   }
 }
+
+function updateScoreboard() {
+  inningSpan.textContent = game.inning;
+  scoreSpan.textContent = game.score;
+  strikesSpan.textContent = game.strikes;
+  outsSpan.textContent = game.outs;
+}
+
+function showMessage(msg, color = '#d9534f') {
+  messageDiv.textContent = msg;
+  messageDiv.style.color = color;
+}
+
+function resetBall() {
+  game.ballX = 400;
+  game.ballY = 120;
+  game.ballVX = 0;
+  game.ballVY = 0;
+  game.ballActive = false;
+  game.batterSwing = false;
+}
+
+function nextBatter() {
+  game.strikes = 0;
+  resetBall();
+  showMessage('');
+}
+
+function resetGame() {
+  game = {
+    inning: 1,
+    score: 0,
+    strikes: 0,
+    outs: 0,
+    ballX: 400,
+    ballY: 120,
+    ballVX: 0,
+    ballVY: 0,
+    ballActive: false,
+    batterSwing: false,
+    gameActive: true,
+    bases: [false, false, false],
+  };
+  updateScoreboard();
+  drawField();
+  showMessage('Game Reset!', '#337ab7');
+}
+
+pitchBtn.onclick = function () {
+  if (!game.ballActive && game.gameActive) {
+    // Randomize pitch direction
+    game.ballVX = (Math.random() - 0.5) * 5;
+    game.ballVY = 3 + Math.random() * 2;
+    game.ballActive = true;
+    game.batterSwing = false;
+    showMessage('Pitch thrown! Press Swing as ball crosses home plate.', '#5bc0de');
+  }
+};
+
+swingBtn.onclick = function () {
+  if (game.ballActive && game.gameActive) {
+    game.batterSwing = true;
+    // Check if swing timing is good
+    const swingZoneY = 420;
+    if (Math.abs(game.ballY - swingZoneY) < 32 && Math.abs(game.ballX - 400) < 40) {
+      // HIT!
+      const hitType = Math.random();
+      if (hitType < 0.5) {
+        // Single
+        advanceBases(1);
+        showMessage('Single! Runner on base.', '#5cb85c');
+      } else if (hitType < 0.8) {
+        // Double
+        advanceBases(2);
+        showMessage('Double! Two bases advanced.', '#5cb85c');
+      } else if (hitType < 0.97) {
+        // Triple
+        advanceBases(3);
+        showMessage('Triple! Three bases advanced.', '#5cb85c');
+      } else {
+        // Home run!
+        advanceBases(4);
+        showMessage('Home Run! All runners score!', '#f39c12');
+      }
+      nextBatter();
+    } else {
+      // Missed
+      game.strikes++;
+      if (game.strikes >= 3) {
+        game.outs++;
+        showMessage('Strike Out!', '#d9534f');
+        if (game.outs >= 3) {
+          // Next inning
+          game.inning++;
+          game.outs = 0;
+          game.bases = [false, false, false];
+          showMessage('Side retired! Next inning.', '#337ab7');
+        }
+        nextBatter();
+        if (game.inning > 9) {
+          game.gameActive = false;
+          showMessage('Game Over! Final score: ' + game.score, '#5e5e5e');
+        }
+      } else {
+        showMessage('Strike ' + game.strikes + '!', '#d9534f');
+      }
+      resetBall();
+    }
+    updateScoreboard();
+  }
+};
+
+resetBtn.onclick = function () {
+  resetGame();
+};
+
+function advanceBases(basesAdvanced) {
+  let runnersScored = 0;
+  // Move runners
+  for (let i = 2; i >= 0; i--) {
+    if (game.bases[i]) {
+      if (i + basesAdvanced >= 3) {
+        runnersScored++;
+        game.bases[i] = false;
+      } else {
+        game.bases[i + basesAdvanced] = true;
+        game.bases[i] = false;
+      }
+    }
+  }
+  // Batter to base
+  if (basesAdvanced === 4) {
+    runnersScored++; // Batter scores
+  } else if (basesAdvanced <= 3) {
+    game.bases[basesAdvanced - 1] = true;
+  }
+  game.score += runnersScored;
+  updateScoreboard();
+}
+
+function updateBall() {
+  if (game.ballActive) {
+    game.ballX += game.ballVX;
+    game.ballY += game.ballVY;
+    // Ball reaches home plate
+    if (game.ballY >= 420) {
+      game.ballActive = false;
+      // If no swing, it's a strike
+      if (!game.batterSwing) {
+        game.strikes++;
+        if (game.strikes >= 3) {
+          game.outs++;
+          showMessage('Strike Out!', '#d9534f');
+          if (game.outs >= 3) {
+            game.inning++;
+            game.outs = 0;
+            game.bases = [false, false, false];
+            showMessage('Side retired! Next inning.', '#337ab7');
+          }
+          nextBatter();
+          if (game.inning > 9) {
+            game.gameActive = false;
+            showMessage('Game Over! Final score: ' + game.score, '#5e5e5e');
+          }
+        } else {
+          showMessage('Strike ' + game.strikes + '!', '#d9534f');
+        }
+        resetBall();
+        updateScoreboard();
+      }
+    }
+    drawField();
+  }
+}
+
+function gameLoop() {
+  updateBall();
+  requestAnimationFrame(gameLoop);
+}
+
+resetGame();
+gameLoop();
